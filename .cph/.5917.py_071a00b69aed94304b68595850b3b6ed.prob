@@ -1,1 +1,1 @@
-{"name":"Local: 5917","url":"/workspaces/ol/5917.py","tests":[{"id":1779187634563,"input":"2 0\n3\nMOO\n5\nOOMOO","output":"00"}],"interactive":false,"memoryLimit":1024,"timeLimit":3000,"srcPath":"/workspaces/ol/5917.py","group":"local","local":true}
+{"name":"Local: 5917","url":"/workspaces/ol/5917.py","tests":[{"id":1779187634563,"input":"2 1\n3\nMOO\n5\nOOMOO","output":"00"}],"interactive":false,"memoryLimit":1024,"timeLimit":3000,"srcPath":"/workspaces/ol/5917.py","group":"local","local":true}

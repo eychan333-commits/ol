@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>턴제 길막기 (Trap the Target)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#06b6d4',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        },
+                        cyber: {
+                            bg: '#0f172a',
+                            panel: '#1e293b',
+                            accent: '#22d3ee',
+                            pink: '#f43f5e',
+                            gold: '#fbbf24',
+                            grid: '#334155'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-short': 'bounceShort 0.6s ease infinite alternate',
+                    },
+                    keyframes: {
+                        bounceShort: {
+                            '0%': { transform: 'translateY(0)' },
+                            '100%': { transform: 'translateY(-6px)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Modern Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Canvas styling */
+        canvas {
+            display: block;
+            touch-action: none;
+            cursor: pointer;
+        }
+
+        /* Custom pulse glow */
+        .glow-accent {
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
+        }
+        .glow-pink {
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-cyan-500 selection:text-black">
+
+    <!-- TOP HEADER -->
+    <header class="w-full bg-slate-900/80 border-b border-slate-800 backdrop-blur-md sticky top-0 z-30 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-draw-polygon text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
+                        턴제 길막기 <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-semibold uppercase ml-1">Pro</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">타깃이 탈출하기 전에 모든 길을 차단하세요!</p>
+                </div>
+            </div>
+
+            <!-- Stats Header Widget -->
+            <div class="flex items-center gap-4 text-xs sm:text-sm font-semibold bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700/60">
+                <div class="flex items-center gap-1.5 text-emerald-400" title="승리 횟수">
+                    <i class="fa-solid fa-trophy text-amber-400"></i>
+                    <span>승리: <strong id="stat-wins" class="text-white">0</strong></span>
+                </div>
+                <div class="w-px h-4 bg-slate-700"></div>
+                <div class="flex items-center gap-1.5 text-rose-400" title="패배 횟수">
+                    <i class="fa-solid fa-circle-xmark text-rose-400"></i>
+                    <span>패배: <strong id="stat-losses" class="text-white">0</strong></span>
+                </div>
+                <div class="w-px h-4 bg-slate-700"></div>
+                <div class="flex items-center gap-1.5 text-cyan-400" title="현재 턴">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    <span>턴: <strong id="stat-turns" class="text-white">0</strong></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-3 py-4 flex flex-col lg:flex-row gap-6 items-center justify-center">
+
+        <!-- GAME CONTROL PANEL (LEFT / TOP) -->
+        <div class="w-full lg:w-80 flex flex-col gap-4">
+            
+            <!-- Game Rules / Status Card -->
+            <div class="glass-panel p-5 rounded-2xl shadow-xl flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">게임을 지휘하세요</span>
+                    <span id="turn-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse">
+                        당신의 턴
+                    </span>
+                </div>
+
+                <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+                    <p id="game-message" class="text-sm font-medium text-slate-300 leading-relaxed text-center">
+                        클릭하여 타깃의 이동 경로를 막으세요. 외부 가장자리에 도달하면 패배합니다!
+                    </p>
+                </div>
+
+                <!-- Difficulty Selector -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-bold text-slate-400">난이도 설정</label>
+                    <div class="grid grid-cols-3 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                        <button id="btn-diff-easy" onclick="setDifficulty('easy')" class="py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white">쉬움</button>
+                        <button id="btn-diff-medium" onclick="setDifficulty('medium')" class="py-1.5 text-xs font-bold rounded-lg transition-all bg-cyan-600 text-white shadow">보통</button>
+                        <button id="btn-diff-hard" onclick="setDifficulty('hard')" class="py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white">어려움</button>
+                    </div>
+                </div>
+
+                <!-- Theme Selector -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-bold text-slate-400">테마 선택</label>
+                    <div class="grid grid-cols-3 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                        <button id="btn-theme-cyber" onclick="setTheme('cyber')" class="py-1.5 text-xs font-bold rounded-lg transition-all bg-slate-800 text-cyan-400 border border-cyan-500/30">네온 사이버</button>
+                        <button id="btn-theme-slime" onclick="setTheme('slime')" class="py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white">귀여운 슬라임</button>
+                        <button id="btn-theme-space" onclick="setTheme('space')" class="py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white">우주 탈출</button>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button onclick="undoMove()" id="btn-undo" class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition disabled:opacity-40 disabled:pointer-events-none">
+                        <i class="fa-solid fa-rotate-left"></i> 무르기
+                    </button>
+                    <button onclick="toggleHint()" id="btn-hint" class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 text-xs font-bold rounded-xl border border-slate-700 transition">
+                        <i class="fa-solid fa-lightbulb"></i> <span id="hint-text">힌트 보기</span>
+                    </button>
+                </div>
+
+                <button onclick="resetGame()" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-cyan-500/20 active:scale-95 transition">
+                    <i class="fa-solid fa-arrows-rotate"></i> 새 게임 시작
+                </button>
+            </div>
+
+            <!-- Sound & Help Quick Bar -->
+            <div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs text-slate-400">
+                <button onclick="toggleSound()" id="btn-sound" class="flex items-center gap-2 hover:text-slate-200 transition">
+                    <i id="icon-sound" class="fa-solid fa-volume-high text-cyan-400 text-sm"></i>
+                    <span id="label-sound">사운드 ON</span>
+                </button>
+                <button onclick="openRulesModal()" class="flex items-center gap-1.5 hover:text-slate-200 transition">
+                    <i class="fa-solid fa-circle-question text-amber-400"></i>
+                    <span>게임 방법</span>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- CANVAS BOARD DISPLAY (CENTER / MAIN) -->
+        <div class="relative w-full max-w-[560px] aspect-square flex items-center justify-center p-2 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl shadow-cyan-950/40">
+            <canvas id="gameCanvas" class="w-full h-full rounded-2xl"></canvas>
+
+            <!-- Floating Overlay Notification -->
+            <div id="status-toast" class="absolute top-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-slate-900/90 border border-cyan-500/50 text-cyan-300 text-xs font-bold shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2">
+                <i class="fa-solid fa-circle-info"></i> <span id="toast-msg">턴 완료</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="w-full bg-slate-950 border-t border-slate-900 py-3 text-center text-xs text-slate-500">
+        턴제 길막기 게임 &copy; 2026. Hexagonal Pathfinding Logic Powered Engine.
+    </footer>
+
+    <!-- WIN / LOSS MODAL -->
+    <div id="modal-result" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl border border-slate-700 shadow-2xl text-center transform transition-all scale-95 opacity-0 duration-300" id="modal-content">
+            <div id="modal-icon-container" class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl shadow-xl">
+                <!-- Dynamic Icon -->
+            </div>
+            
+            <h2 id="modal-title" class="text-2xl font-black text-white mb-2">승리하였습니다!</h2>
+            <p id="modal-desc" class="text-sm text-slate-300 mb-6">완벽한 전략으로 타깃을 완벽히 포위했습니다.</p>
+
+            <!-- Result Summary Box -->
+            <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 mb-6 grid grid-cols-2 gap-3 text-left">
+                <div>
+                    <span class="text-xs text-slate-400 block">소요된 턴</span>
+                    <span id="result-turns" class="text-lg font-bold text-cyan-400">12 턴</span>
+                </div>
+                <div>
+                    <span class="text-xs text-slate-400 block">선택한 난이도</span>
+                    <span id="result-diff" class="text-lg font-bold text-emerald-400">보통</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeResultModal(); resetGame();" class="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-cyan-500/25 active:scale-95 transition">
+                    다시 도전하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RULES MODAL -->
+    <div id="modal-rules" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl border border-slate-700 shadow-2xl text-left">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-cyan-400"></i> 게임 규칙 안내
+                </h3>
+                <button onclick="closeRulesModal()" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                <p>1. <strong>목표:</strong> 중앙의 타깃(슬라임/아이콘)이 보드 밖(가장자리)으로 탈출하지 못하도록 육각형 블록을 클릭해 가두세요.</p>
+                <p>2. <strong>턴 진행:</strong> 당신이 블록을 하나 막을 때마다, 타깃도 최단 경로를 계산하여 1칸 이동합니다.</p>
+                <p>3. <strong>승리 조건:</strong> 타깃이 이동할 수 있는 모든 출구가 완전히 차단되었을 때 즉시 승리합니다.</p>
+                <p>4. <strong>패배 조건:</strong> 타깃이 보드의 맨 가장자리 칸에 도달하는 순간 게임에서 패배합니다.</p>
+                <p>5. <strong>힌트/무르기:</strong> 막혔을 땐 '힌트 보기'로 최단 경로를 파악하거나 '무르기' 기능을 활용해보세요!</p>
+            </div>
+            <button onclick="closeRulesModal()" class="w-full mt-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition">
+                확인했습니다
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* WEB AUDIO API SOUND SYNTHESIZER */
+        class AudioController {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playClick() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playBlock() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playMove() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(520, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            playWin() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    gain.gain.setValueAtTime(0.25, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.3);
+                });
+            }
+
+            playLose() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const notes = [400, 350, 300, 220];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.12);
+                    osc.stop(now + idx * 0.12 + 0.25);
+                });
+            }
+        }
+
+        const audio = new AudioController();
+
+        // GAME BOARD STATE
+        const GRID_ROWS = 11;
+        const GRID_COLS = 11;
+
+        let grid = []; // 2D array: { r, c, isBlocked }
+        let targetPos = { r: 5, c: 5 }; // AI starting position at center
+        let initialBlocksCount = 10;
+        let difficulty = 'medium'; // easy, medium, hard
+        let currentTheme = 'cyber';
+        let turnCount = 0;
+        let isGameOver = false;
+        let showHint = false;
+        let currentPath = [];
+        let historyStack = [];
+
+        // Statistics
+        let stats = {
+            wins: parseInt(localStorage.getItem('trap_wins') || '0'),
+            losses: parseInt(localStorage.getItem('trap_losses') || '0')
+        };
+
+        // Theme Definitions
+        const themes = {
+            cyber: {
+                bg: '#0f172a',
+                tileEmpty: '#1e293b',
+                tileBorder: '#334155',
+                tileBlocked: '#f43f5e',
+                tileBlockedBorder: '#fda4af',
+                hoverTile: '#0284c7',
+                pathColor: 'rgba(34, 211, 238, 0.4)',
+                targetIcon: 'fa-microchip',
+                targetColor: '#22d3ee',
+                targetBg: '#0891b2'
+            },
+            slime: {
+                bg: '#064e3b',
+                tileEmpty: '#047857',
+                tileBorder: '#10b981',
+                tileBlocked: '#b45309',
+                tileBlockedBorder: '#f59e0b',
+                hoverTile: '#34d399',
+                pathColor: 'rgba(253, 224, 71, 0.5)',
+                targetIcon: 'fa-ghost',
+                targetColor: '#a7f3d0',
+                targetBg: '#059669'
+            },
+            space: {
+                bg: '#111827',
+                tileEmpty: '#1f2937',
+                tileBorder: '#374151',
+                tileBlocked: '#8b5cf6',
+                tileBlockedBorder: '#c084fc',
+                hoverTile: '#6366f1',
+                pathColor: 'rgba(168, 85, 247, 0.4)',
+                targetIcon: 'fa-user-astronaut',
+                targetColor: '#fbbf24',
+                targetBg: '#4c1d95'
+            }
+        };
+
+        // Canvas element setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let hexRadius = 20;
+        let hoverCell = null;
+
+        // Get Hexagon Offset Neighbors
+        function getNeighbors(r, c) {
+            const neighbors = [];
+            const isOdd = (r % 2 !== 0);
+
+            const offsets = isOdd ? [
+                { dr: -1, dc: 0 },  // Top-Left
+                { dr: -1, dc: 1 },  // Top-Right
+                { dr: 0,  dc: -1 }, // Left
+                { dr: 0,  dc: 1 },  // Right
+                { dr: 1,  dc: 0 },  // Bottom-Left
+                { dr: 1,  dc: 1 }   // Bottom-Right
+            ] : [
+                { dr: -1, dc: -1 }, // Top-Left
+                { dr: -1, dc: 0 },  // Top-Right
+                { dr: 0,  dc: -1 }, // Left
+                { dr: 0,  dc: 1 },  // Right
+                { dr: 1,  dc: -1 }, // Bottom-Left
+                { dr: 1,  dc: 0 }   // Bottom-Right
+            ];
+
+            for (let off of offsets) {
+                const nr = r + off.dr;
+                const nc = c + off.dc;
+                if (nr >= 0 && nr < GRID_ROWS && nc >= 0 && nc < GRID_COLS) {
+                    neighbors.push({ r: nr, c: nc });
+                }
+            }
+            return neighbors;
+        }
+
+        // Check if cell is on boundary edge
+        function isEdgeCell(r, c) {
+            return r === 0 || r === GRID_ROWS - 1 || c === 0 || c === GRID_COLS - 1;
+        }
+
+        // BFS Shortest Path Calculation
+        function findShortestPath(startPos) {
+            const queue = [[startPos]];
+            const visited = new Array(GRID_ROWS).fill(null).map(() => new Array(GRID_COLS).fill(false));
+            visited[startPos.r][startPos.c] = true;
+
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const current = path[path.length - 1];
+
+                // If reached edge, path found!
+                if (isEdgeCell(current.r, current.c)) {
+                    return path;
+                }
+
+                const neighbors = getNeighbors(current.r, current.c);
+                for (let n of neighbors) {
+                    if (!visited[n.r][n.c] && !grid[n.r][n.c].isBlocked) {
+                        visited[n.r][n.c] = true;
+                        queue.push([...path, n]);
+                    }
+                }
+            }
+
+            return null; // Target is completely trapped!
+        }
+
+        // Resize Canvas to keep aspect ratio sharp
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            // Calculate Hexagon radius based on canvas size
+            const availableWidth = rect.width;
+            const availableHeight = rect.height;
+            const horizSpacing = Math.sqrt(3);
+            hexRadius = Math.min(
+                availableWidth / ((GRID_COLS + 0.5) * horizSpacing),
+                availableHeight / ((GRID_ROWS * 1.5) + 0.5)
+            );
+
+            renderBoard();
+        }
+
+        // Convert grid cell (r, c) to center pixel (x, y)
+        function getHexCenter(r, c) {
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            
+            const horizSpacing = hexRadius * Math.sqrt(3);
+            const vertSpacing = hexRadius * 1.5;
+
+            const gridTotalWidth = (GRID_COLS + 0.5) * horizSpacing;
+            const gridTotalHeight = (GRID_ROWS - 1) * vertSpacing + (hexRadius * 2);
+
+            const offsetX = (width - gridTotalWidth) / 2 + (horizSpacing / 2);
+            const offsetY = (height - gridTotalHeight) / 2 + hexRadius;
+
+            const x = offsetX + c * horizSpacing + ((r % 2 !== 0) ? horizSpacing / 2 : 0);
+            const y = offsetY + r * vertSpacing;
+
+            return { x, y };
+        }
+
+        // Draw Single Hexagon Polygon
+        function drawHexagon(centerX, centerY, radius, fillColor, borderColor, borderWidth = 2) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 180) * (60 * i - 30);
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = borderWidth;
+            ctx.stroke();
+        }
+
+        // Main Board Draw Loop
+        function renderBoard() {
+            const theme = themes[currentTheme];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background
+            ctx.fillStyle = theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate active shortest path for hints
+            currentPath = findShortestPath(targetPos) || [];
+
+            // 1. Draw Grid Cells
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const cell = grid[r][c];
+                    const { x, y } = getHexCenter(r, c);
+
+                    let fillColor = theme.tileEmpty;
+                    let borderColor = theme.tileBorder;
+
+                    if (cell.isBlocked) {
+                        fillColor = theme.tileBlocked;
+                        borderColor = theme.tileBlockedBorder;
+                    } else if (hoverCell && hoverCell.r === r && hoverCell.c === c && !(targetPos.r === r && targetPos.c === c)) {
+                        fillColor = theme.hoverTile;
+                    }
+
+                    drawHexagon(x, y, hexRadius - 1.5, fillColor, borderColor);
+
+                    // Highlight Path (Hint Mode)
+                    if (showHint && currentPath.length > 1 && !cell.isBlocked) {
+                        const inPath = currentPath.some(p => p.r === r && p.c === c);
+                        if (inPath && !(targetPos.r === r && targetPos.c === c)) {
+                            drawHexagon(x, y, hexRadius - 4, theme.pathColor, theme.targetColor, 1.5);
+                        }
+                    }
+                }
+            }
+
+            // 2. Draw Target Character
+            const targetCenter = getHexCenter(targetPos.r, targetPos.c);
+            
+            // Pulse glow under target
+            const glowGradient = ctx.createRadialGradient(
+                targetCenter.x, targetCenter.y, 2,
+                targetCenter.x, targetCenter.y, hexRadius * 1.2
+            );
+            glowGradient.addColorStop(0, theme.targetColor);
+            glowGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = glowGradient;
+            ctx.beginPath();
+            ctx.arc(targetCenter.x, targetCenter.y, hexRadius * 1.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Target Body Circle
+            ctx.beginPath();
+            ctx.arc(targetCenter.x, targetCenter.y, hexRadius * 0.65, 0, Math.PI * 2);
+            ctx.fillStyle = theme.targetBg;
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // FontAwesome Icon inside Target
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${hexRadius * 0.7}px "Font Awesome 6 Free", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Map icon unicode
+            const iconCodeMap = {
+                'fa-microchip': '\uf2db',
+                'fa-ghost': '\uf6e2',
+                'fa-user-astronaut': '\uf4fb'
+            };
+            const iconChar = iconCodeMap[theme.targetIcon] || '\uf005';
+            ctx.fillText(iconChar, targetCenter.x, targetCenter.y);
+        }
+
+        // Mouse / Touch Position to Grid Hex Conversion
+        function getHexFromPixel(px, py) {
+            let minDistance = Infinity;
+            let closestCell = null;
+
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const center = getHexCenter(r, c);
+                    const dist = Math.hypot(px - center.x, py - center.y);
+                    if (dist < hexRadius && dist < minDistance) {
+                        minDistance = dist;
+                        closestCell = { r, c };
+                    }
+                }
+            }
+            return closestCell;
+        }
+
+        // Handle Player Click (Placing Block)
+        function handleBoardClick(e) {
+            if (isGameOver) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            if (!clientX || !clientY) return;
+
+            const px = clientX - rect.left;
+            const py = clientY - rect.top;
+
+            const cell = getHexFromPixel(px, py);
+            if (!cell) return;
+
+            // Cannot block occupied cell or already blocked cell
+            if (grid[cell.r][cell.c].isBlocked) return;
+            if (cell.r === targetPos.r && cell.c === targetPos.c) return;
+
+            // Save state to history for Undo feature
+            saveHistory();
+
+            // Block Cell
+            grid[cell.r][cell.c].isBlocked = true;
+            turnCount++;
+            audio.playBlock();
+            updateUI();
+
+            // Check Win Condition (Is target completely trapped right now?)
+            const pathAfterBlock = findShortestPath(targetPos);
+            if (!pathAfterBlock) {
+                renderBoard();
+                triggerWin();
+                return;
+            }
+
+            // AI Turn (Move target)
+            setTimeout(() => {
+                makeAIMove(pathAfterBlock);
+            }, 180);
+        }
+
+        // Execute AI Turn Movement
+        function makeAIMove(path) {
+            if (isGameOver) return;
+
+            let nextMove = null;
+
+            if (difficulty === 'easy' && Math.random() < 0.35) {
+                // Easy mode: 35% chance to pick random open neighbor
+                const openNeighbors = getNeighbors(targetPos.r, targetPos.c).filter(n => !grid[n.r][n.c].isBlocked);
+                if (openNeighbors.length > 0) {
+                    nextMove = openNeighbors[Math.floor(Math.random() * openNeighbors.length)];
+                }
+            }
+
+            if (!nextMove) {
+                // Default Optimal: Step 1 along shortest path
+                if (path && path.length > 1) {
+                    nextMove = path[1];
+                }
+            }
+
+            if (nextMove) {
+                targetPos = { r: nextMove.r, c: nextMove.c };
+                audio.playMove();
+            }
+
+            renderBoard();
+
+            // Check Loss Condition (Target reached boundary)
+            if (isEdgeCell(targetPos.r, targetPos.c)) {
+                triggerLoss();
+                return;
+            }
+
+            // Check Win Condition again (if target surrounded after moving)
+            const pathAfterMove = findShortestPath(targetPos);
+            if (!pathAfterMove) {
+                triggerWin();
+            }
+        }
+
+        // Reset and Start New Game
+        function resetGame() {
+            isGameOver = false;
+            turnCount = 0;
+            showHint = false;
+            historyStack = [];
+            targetPos = { r: Math.floor(GRID_ROWS / 2), c: Math.floor(GRID_COLS / 2) };
+
+            // Initialize Grid
+            grid = [];
+            for (let r = 0; r < GRID_ROWS; r++) {
+                grid[r] = [];
+                for (let c = 0; c < GRID_COLS; c++) {
+                    grid[r][c] = { r, c, isBlocked: false };
+                }
+            }
+
+            // Set initial random blocks based on difficulty
+            let blocksNeeded = initialBlocksCount;
+            if (difficulty === 'easy') blocksNeeded = 14;
+            else if (difficulty === 'medium') blocksNeeded = 10;
+            else if (difficulty === 'hard') blocksNeeded = 6;
+
+            let placed = 0;
+            while (placed < blocksNeeded) {
+                const randR = Math.floor(Math.random() * GRID_ROWS);
+                const randC = Math.floor(Math.random() * GRID_COLS);
+
+                // Don't place on target center
+                if (randR === targetPos.r && randC === targetPos.c) continue;
+
+                if (!grid[randR][randC].isBlocked) {
+                    grid[randR][randC].isBlocked = true;
+                    placed++;
+                }
+            }
+
+            updateUI();
+            renderBoard();
+            showToast('게임이 새로 시작되었습니다!');
+        }
+
+        // Save current state for Undo
+        function saveHistory() {
+            // Clone grid state
+            const gridCopy = grid.map(row => row.map(cell => ({ ...cell })));
+            historyStack.push({
+                grid: gridCopy,
+                targetPos: { ...targetPos },
+                turnCount: turnCount
+            });
+            if (historyStack.length > 5) historyStack.shift(); // Limit undo steps
+        }
+
+        // Undo Last Turn
+        function undoMove() {
+            if (historyStack.length === 0 || isGameOver) return;
+            const lastState = historyStack.pop();
+            grid = lastState.grid;
+            targetPos = lastState.targetPos;
+            turnCount = lastState.turnCount;
+            audio.playClick();
+            updateUI();
+            renderBoard();
+            showToast('한 턴 되돌렸습니다.');
+        }
+
+        // Toggle Route Hint
+        function toggleHint() {
+            showHint = !showHint;
+            audio.playClick();
+            const btn = document.getElementById('btn-hint');
+            const hintText = document.getElementById('hint-text');
+            if (showHint) {
+                btn.classList.add('bg-amber-500/20', 'border-amber-500/50', 'text-amber-300');
+                hintText.textContent = '힌트 끄기';
+            } else {
+                btn.classList.remove('bg-amber-500/20', 'border-amber-500/50', 'text-amber-300');
+                hintText.textContent = '힌트 보기';
+            }
+            renderBoard();
+        }
+
+        // UI State Sync
+        function updateUI() {
+            document.getElementById('stat-turns').textContent = turnCount;
+            document.getElementById('stat-wins').textContent = stats.wins;
+            document.getElementById('stat-losses').textContent = stats.losses;
+            document.getElementById('btn-undo').disabled = (historyStack.length === 0);
+
+            const badge = document.getElementById('turn-badge');
+            if (!isGameOver) {
+                badge.textContent = '당신의 턴';
+                badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse';
+            }
+        }
+
+        // Difficulty Switcher
+        function setDifficulty(level) {
+            difficulty = level;
+            audio.playClick();
+
+            const btns = {
+                easy: document.getElementById('btn-diff-easy'),
+                medium: document.getElementById('btn-diff-medium'),
+                hard: document.getElementById('btn-diff-hard')
+            };
+
+            Object.keys(btns).forEach(key => {
+                if (key === level) {
+                    btns[key].className = 'py-1.5 text-xs font-bold rounded-lg transition-all bg-cyan-600 text-white shadow';
+                } else {
+                    btns[key].className = 'py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white';
+                }
+            });
+
+            resetGame();
+        }
+
+        // Theme Switcher
+        function setTheme(themeKey) {
+            currentTheme = themeKey;
+            audio.playClick();
+
+            const btns = {
+                cyber: document.getElementById('btn-theme-cyber'),
+                slime: document.getElementById('btn-theme-slime'),
+                space: document.getElementById('btn-theme-space')
+            };
+
+            Object.keys(btns).forEach(key => {
+                if (key === themeKey) {
+                    btns[key].className = 'py-1.5 text-xs font-bold rounded-lg transition-all bg-slate-800 text-cyan-400 border border-cyan-500/30';
+                } else {
+                    btns[key].className = 'py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white';
+                }
+            });
+
+            renderBoard();
+        }
+
+        // Sound Toggle
+        function toggleSound() {
+            audio.enabled = !audio.enabled;
+            const icon = document.getElementById('icon-sound');
+            const label = document.getElementById('label-sound');
+            if (audio.enabled) {
+                icon.className = 'fa-solid fa-volume-high text-cyan-400 text-sm';
+                label.textContent = '사운드 ON';
+                audio.playClick();
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500 text-sm';
+                label.textContent = '사운드 OFF';
+            }
+        }
+
+        // Show Temporary Toast Message
+        function showToast(msg) {
+            const toast = document.getElementById('status-toast');
+            document.getElementById('toast-msg').textContent = msg;
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 1800);
+        }
+
+        // Trigger Win Scenario
+        function triggerWin() {
+            isGameOver = true;
+            stats.wins++;
+            localStorage.setItem('trap_wins', stats.wins);
+            audio.playWin();
+
+            const badge = document.getElementById('turn-badge');
+            badge.textContent = '승리!';
+            badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+
+            showResultModal(true);
+        }
+
+        // Trigger Loss Scenario
+        function triggerLoss() {
+            isGameOver = true;
+            stats.losses++;
+            localStorage.setItem('trap_losses', stats.losses);
+            audio.playLose();
+
+            const badge = document.getElementById('turn-badge');
+            badge.textContent = '패배!';
+            badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+
+            showResultModal(false);
+        }
+
+        // Result Modal Display
+        function showResultModal(isWin) {
+            const modal = document.getElementById('modal-result');
+            const content = document.getElementById('modal-content');
+            const iconContainer = document.getElementById('modal-icon-container');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+
+            document.getElementById('result-turns').textContent = `${turnCount} 턴`;
+            document.getElementById('result-diff').textContent = 
+                difficulty === 'easy' ? '쉬움' : difficulty === 'medium' ? '보통' : '어려움';
+
+            if (isWin) {
+                iconContainer.className = 'w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl shadow-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 glow-accent';
+                iconContainer.innerHTML = '<i class="fa-solid fa-trophy"></i>';
+                title.textContent = '축하합니다! 완벽한 승리!';
+                desc.textContent = '타깃의 모든 이동 경로를 성공적으로 차단했습니다!';
+            } else {
+                iconContainer.className = 'w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl shadow-xl bg-rose-500/20 text-rose-400 border border-rose-500/40 glow-pink';
+                iconContainer.innerHTML = '<i class="fa-solid fa-person-running"></i>';
+                title.textContent = '타깃이 탈출했습니다!';
+                desc.textContent = '타깃이 외곽으로 빠져나갔습니다. 경로를 더 가깝게 차단해 보세요!';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            updateUI();
+        }
+
+        function closeResultModal() {
+            const modal = document.getElementById('modal-result');
+            const content = document.getElementById('modal-content');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function openRulesModal() {
+            audio.playClick();
+            document.getElementById('modal-rules').classList.remove('hidden');
+        }
+
+        function closeRulesModal() {
+            document.getElementById('modal-rules').classList.add('hidden');
+        }
+
+        // Canvas Mouse Move Event for Hover Highlight
+        canvas.addEventListener('mousemove', (e) => {
+            if (isGameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            const px = e.clientX - rect.left;
+            const py = e.clientY - rect.top;
+            const cell = getHexFromPixel(px, py);
+
+            if (JSON.stringify(hoverCell) !== JSON.stringify(cell)) {
+                hoverCell = cell;
+                renderBoard();
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (hoverCell !== null) {
+                hoverCell = null;
+                renderBoard();
+            }
+        });
+
+        // Click & Touch Handlers
+        canvas.addEventListener('click', handleBoardClick);
+
+        // Window Resize Handling
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+
+        // Application Start
+        window.onload = function () {
+            resizeCanvas();
+            resetGame();
+        };
+    </script>
+</body>
+</html>
